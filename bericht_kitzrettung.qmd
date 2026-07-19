@@ -260,7 +260,7 @@ if (length(teams_beendet) > 0) {
 ```
 
 ```{r grafik-jahresverlauf, fig.width=7, fig.height=4}
-ggplot(jahresuebersicht, aes(x = factor(jahr), y = stunden, fill = jahr)) +
+p_jahresverlauf <- ggplot(jahresuebersicht, aes(x = factor(jahr), y = stunden, fill = jahr)) +
   geom_col(width = 0.55) +
   geom_text(
     aes(label = paste0(round(stunden, 1), " h\n", format(round(gegenwert, 0), big.mark = ".", decimal.mark = ","), " €")),
@@ -275,9 +275,26 @@ ggplot(jahresuebersicht, aes(x = factor(jahr), y = stunden, fill = jahr)) +
     caption  = "Quelle: eigene Einsatzerfassung"
   ) +
   thema_kitzrettung
+
+p_jahresverlauf
+ggsave("jahresverlauf-gegenwert.png", p_jahresverlauf, width = 7, height = 4, dpi = 300, bg = "#fbfaf7")
 ```
 
+```{r grafik-boxplot-jahre, fig.width=7, fig.height=4}
+set.seed(43)
 
+ggplot(alle_einsaetze, aes(x = factor(jahr), y = dauer_h)) +
+  geom_boxplot(fill = palette_stunden["low"], color = palette_stunden["high"], width = 0.35, outlier.shape = NA) +
+  geom_jitter(width = 0.08, height = 0, shape = 21, size = 2.4,
+              fill = palette_einsatz["high"], color = "white", stroke = 0.5, alpha = 0.85) +
+  labs(
+    title    = "Konsistenz der Einsatzdauer über die Jahre",
+    subtitle = "Schmalere Box = konsistentere, eingespieltere Einsatzdauer über alle Teams hinweg",
+    x = NULL, y = "Einsatzdauer (Stunden)",
+    caption  = "Box = mittlere 50 % aller Einsätze des Jahres, Strich = Median · Quelle: eigene Einsatzerfassung"
+  ) +
+  thema_kitzrettung
+```
 
 # Grafiken `r berichtsjahr`
 
@@ -319,7 +336,7 @@ ggplot(kitzretter_df, aes(x = reorder(name, stunden_je_einsatz), y = stunden_je_
 ```
 
 ```{r grafik-effizienz, fig.width=7, fig.height=4}
-ggplot(kitzretter_df, aes(x = reorder(name, kitze_pro_stunde), y = kitze_pro_stunde, color = kitze_pro_stunde)) +
+p_effizienz <- ggplot(kitzretter_df, aes(x = reorder(name, kitze_pro_stunde), y = kitze_pro_stunde, color = kitze_pro_stunde)) +
   geom_segment(aes(xend = name, y = 0, yend = kitze_pro_stunde), linewidth = 1.3) +
   geom_point(size = 4) +
   geom_text(aes(label = kitze_pro_stunde), hjust = -0.4, size = 3.3, color = "#3d3d38") +
@@ -333,25 +350,10 @@ ggplot(kitzretter_df, aes(x = reorder(name, kitze_pro_stunde), y = kitze_pro_stu
     caption  = "Quelle: eigene Einsatzerfassung"
   ) +
   thema_kitzrettung
+
+p_effizienz
+ggsave("effizienz-kitze-je-stunde.png", p_effizienz, width = 7, height = 4, dpi = 300, bg = "#fbfaf7")
 ```
-
-```{r grafik-boxplot-jahre, fig.width=7, fig.height=4}
-set.seed(43)
-
-ggplot(alle_einsaetze, aes(x = factor(jahr), y = dauer_h)) +
-  geom_boxplot(fill = palette_stunden["low"], color = palette_stunden["high"], width = 0.35, outlier.shape = NA) +
-  geom_jitter(width = 0.08, height = 0, shape = 21, size = 2.4,
-              fill = palette_einsatz["high"], color = "white", stroke = 0.5, alpha = 0.85) +
-  labs(
-    title    = "Konsistenz der Einsatzdauer über die Jahre",
-    subtitle = "Schmalere Box = konsistentere, eingespieltere Einsatzdauer über alle Teams hinweg",
-    x = NULL, y = "Einsatzdauer (Stunden)",
-    caption  = "Box = mittlere 50 % aller Einsätze des Jahres, Strich = Median · Quelle: eigene Einsatzerfassung"
-  ) +
-  thema_kitzrettung
-```
-
-
 
 ```{r grafik-boxplot, fig.width=7, fig.height=4}
 set.seed(42)  # fester Seed, damit die Punktposition bei jedem Rendern gleich bleibt
@@ -370,7 +372,7 @@ team_reihenfolge <- box_daten %>%
 box_daten     <- box_daten %>% mutate(name = factor(name, levels = team_reihenfolge))
 punkte_daten  <- alle_einsaetze_berichtsjahr %>% mutate(name = factor(name, levels = team_reihenfolge))
 
-ggplot(box_daten, aes(x = name, y = dauer_h)) +
+p_boxplot <- ggplot(box_daten, aes(x = name, y = dauer_h)) +
   geom_boxplot(fill = palette_stunden["low"], color = palette_stunden["high"], width = 0.45, outlier.shape = NA) +
   geom_jitter(data = punkte_daten, aes(x = name, y = dauer_h),
               width = 0.15, height = 0, shape = 21, size = 2.6,
@@ -383,7 +385,11 @@ ggplot(box_daten, aes(x = name, y = dauer_h)) +
     caption  = "Box = mittlere 50 % der Einsätze (Q1–Q3), Strich = Median\nIQR = Q3−Q1 (Boxbreite), Whisker = Werte bis max. 1,5×IQR · Quelle: eigene Einsatzerfassung"
   ) +
   thema_kitzrettung
+
+p_boxplot
+ggsave("boxplot-kitzretter.png", p_boxplot, width = 7, height = 4, dpi = 300, bg = "#fbfaf7")
 ```
+
 
 
 

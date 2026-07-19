@@ -1,2 +1,36 @@
+# --- Quarto: Render-Artefakte ---
+# Werden bei jedem `quarto render`/`preview` neu erzeugt, gehören nicht ins Repo
 /.quarto/
-**/*.quarto_ipynb
+*_files/
+*_cache/
+*.quarto_ipynb
+
+# Gerenderte Ausgabedateien (PDF/HTML) — nur der Quellcode (.qmd) soll versioniert
+# werden, nicht das jeweils aktuelle Render-Ergebnis
+bericht_kitzrettung.pdf
+artikel_kitzrettung.html
+kitzrettung_beitrag.qmd
+kitzrettung_beitrag.html
+
+# Exportierte Chart-PNGs (per ggsave() aus den .qmd-Dateien erzeugt) —
+# reine Hilfsdateien für den Artikel, jederzeit aus den Daten neu generierbar
+effizienz-kitze-je-stunde.png
+boxplot-kitzretter.png
+jahresverlauf-gegenwert.png
+clossar.md
+
+
+
+# --- R / RStudio / Positron ---
+.Rhistory
+.Rdata
+.Ruserdata
+.Rproj.user/
+*.Rproj
+
+# --- macOS ---
+.DS_Store
+
+# --- Sonstiges ---
+*.log
+bericht_kitzrettung.pdf
