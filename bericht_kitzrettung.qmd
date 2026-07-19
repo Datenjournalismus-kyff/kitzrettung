@@ -1,0 +1,109 @@
+---
+title: "Kitzrettung Thüringen"
+subtitle: "Einsatzauswertung der Kitzretter"
+format:
+  pdf:
+    documentclass: article
+    fontfamily: libertine
+    geometry: margin=2.5cm
+    toc: false
+lang: de
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(yaml)
+library(dplyr)
+library(purrr)
+library(tidyr)
+library(ggplot2)
+library(knitr)
+
+`%||%` <- function(a, b) if (is.null(a)) b else a
+
+daten <- read_yaml("kitzretter.yml")
+```
+
+```{r datenaufbereitung}
+# Ein Verein/Team = eine Zeile. Aus den einzelnen Einsätzen werden
+# Gesamtstunden, Anzahl Einsätze und Ø Stunden/Einsatz berechnet.
+kitzretter_df <- map_dfr(daten$kitzretter, function(kr) {
+  tibble(
+    name           = kr$name,
+    verein         = kr$verein %||% NA_character_,
+    einsaetze      = length(kr$einsaetze),
+    gesamtstunden  = sum(map_dbl(kr$einsaetze, ~ .x$dauer_h %||% 0)),
+    kitze_gerettet = sum(map_dbl(kr$einsaetze, ~ .x$kitze_gerettet %||% 0))
+  )
+}) %>%
+  mutate(stunden_je_einsatz = round(gesamtstunden / einsaetze, 2))
+
+alle_einsaetze <- map_dfr(daten$kitzretter, function(kr) {
+  map_dfr(kr$einsaetze, function(e) {
+    tibble(name = kr$name, dauer_h = e$dauer_h %||% 0)
+  })
+})
+```
+
+# Gesamtergebnis
+
+```{r zusammenfassung}
+zusammenfassung <- kitzretter_df %>%
+  summarise(
+    `Kitzretter gesamt`                = n(),
+    `Einsätze gesamt`                  = sum(einsaetze),
+    `Stunden gesamt`                   = round(sum(gesamtstunden), 1),
+    `Kitze gerettet gesamt`            = sum(kitze_gerettet),
+    `Ø Gesamtstunden je Kitzretter`     = round(mean(gesamtstunden), 2),
+    `Ø Stunden je Einsatz (Thüringen)`  = round(sum(gesamtstunden) / sum(einsaetze), 2)
+  )
+
+kable(t(zusammenfassung), col.names = "Wert", format = "latex", booktabs = TRUE)
+```
+
+`r nrow(kitzretter_df)` Kitzretter waren im Berichtszeitraum `r sum(kitzretter_df$einsaetze)` mal im Einsatz und haben dabei insgesamt `r round(sum(kitzretter_df$gesamtstunden),1)` Stunden im Feld verbracht. Im Schnitt kommt jeder Kitzretter auf `r round(mean(kitzretter_df$gesamtstunden),1)` Stunden, ein einzelner Einsatz dauert Thüringen-weit im Mittel `r round(sum(kitzretter_df$gesamtstunden)/sum(kitzretter_df$einsaetze),1)` Stunden.
+
+# Einzelanalyse je Kitzretter
+
+```{r tabelle-einzeln}
+kitzretter_df %>%
+  arrange(desc(gesamtstunden)) %>%
+  select(
+    Name              = name,
+    Verein            = verein,
+    Einsätze          = einsaetze,
+    Gesamtstunden     = gesamtstunden,
+    `Ø Std/Einsatz`   = stunden_je_einsatz,
+    `Kitze gerettet`  = kitze_gerettet
+  ) %>%
+  kable(format = "latex", booktabs = TRUE)
+```
+
+# Grafiken
+
+```{r grafik-gesamtstunden, fig.width=7, fig.height=4}
+ggplot(kitzretter_df, aes(x = reorder(name, gesamtstunden), y = gesamtstunden)) +
+  geom_col(fill = "#3b6e42") +
+  coord_flip() +
+  labs(x = NULL, y = "Gesamtstunden", title = "Gesamtstunden je Kitzretter") +
+  theme_minimal(base_size = 11)
+```
+
+```{r grafik-durchschnitt, fig.width=7, fig.height=4}
+ggplot(kitzretter_df, aes(x = reorder(name, stunden_je_einsatz), y = stunden_je_einsatz)) +
+  geom_col(fill = "#8a6d3b") +
+  coord_flip() +
+  labs(x = NULL, y = "Ø Stunden je Einsatz", title = "Durchschnittliche Einsatzdauer je Kitzretter") +
+  theme_minimal(base_size = 11)
+```
+
+```{r grafik-verteilung, fig.width=7, fig.height=4}
+ggplot(alle_einsaetze, aes(x = dauer_h)) +
+  geom_histogram(binwidth = 0.5, fill = "#4a5568", color = "white", boundary = 0) +
+  labs(x = "Einsatzdauer (Stunden)", y = "Anzahl Einsätze",
+       title = "Verteilung der Einsatzdauer über alle Einsätze") +
+  theme_minimal(base_size = 11)
+```

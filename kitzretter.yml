@@ -1,0 +1,51 @@
+titel: "Kitzrettung Thüringen"
+zeitraum: "2026"
+
+kitzretter:
+  - name: "Familie Müller"
+    verein: "Jägerschaft Sömmerda"
+    einsaetze:
+      - datum: 2026-04-12
+        dauer_h: 3.5
+        flaeche_ha: 25
+        kitze_gerettet: 2
+      - datum: 2026-04-19
+        dauer_h: 2.0
+        flaeche_ha: 15
+        kitze_gerettet: 0
+      - datum: 2026-05-03
+        dauer_h: 4.0
+        flaeche_ha: 30
+        kitze_gerettet: 1
+
+  - name: "Drohnenteam Kyffhäuser"
+    verein: "Jägerschaft Kyffhäuser"
+    einsaetze:
+      - datum: 2026-04-20
+        dauer_h: 4.0
+        flaeche_ha: 40
+        kitze_gerettet: 5
+      - datum: 2026-04-27
+        dauer_h: 3.0
+        flaeche_ha: 22
+        kitze_gerettet: 3
+      - datum: 2026-05-10
+        dauer_h: 2.5
+        flaeche_ha: 18
+        kitze_gerettet: 1
+      - datum: 2026-05-24
+        dauer_h: 3.5
+        flaeche_ha: 28
+        kitze_gerettet: 2
+
+  - name: "Herr Schmidt"
+    verein: "Jägerschaft Nordhausen"
+    einsaetze:
+      - datum: 2026-05-02
+        dauer_h: 1.5
+        flaeche_ha: 10
+        kitze_gerettet: 0
+      - datum: 2026-05-16
+        dauer_h: 2.0
+        flaeche_ha: 12
+        kitze_gerettet: 1
