@@ -1,51 +1,97 @@
 titel: "Kitzrettung Thüringen"
-zeitraum: "2026"
+# berichtsjahr optional: falls nicht gesetzt, nimmt der Bericht automatisch
+# das jüngste Jahr, für das Einsätze erfasst sind.
+# berichtsjahr: 2026
+erstellt: "Michel Hense"
+erstellt_am: 2026-07-19
 
 kitzretter:
-  - name: "Familie Müller"
-    verein: "Jägerschaft Sömmerda"
-    einsaetze:
-      - datum: 2026-04-12
-        dauer_h: 3.5
-        flaeche_ha: 25
-        kitze_gerettet: 2
-      - datum: 2026-04-19
-        dauer_h: 2.0
-        flaeche_ha: 15
-        kitze_gerettet: 0
-      - datum: 2026-05-03
-        dauer_h: 4.0
-        flaeche_ha: 30
-        kitze_gerettet: 1
-
+  # Team seit 2025 aktiv, läuft auch 2026 weiter
   - name: "Drohnenteam Kyffhäuser"
-    verein: "Jägerschaft Kyffhäuser"
+    verein: "Eigenständig"
     einsaetze:
+      - datum: 2025-04-18
+        dauer_h: 3.0
+        flaeche_ha: 20
+        kitze_gerettet: 2
+        auftraggeber: "Familie Müller"
+      - datum: 2025-05-05
+        dauer_h: 3.5
+        flaeche_ha: 26
+        kitze_gerettet: 1
+        auftraggeber: "Agrarhof Kölleda"
       - datum: 2026-04-20
         dauer_h: 4.0
         flaeche_ha: 40
         kitze_gerettet: 5
+        auftraggeber: "Landwirtschaftsbetrieb Seehausen"
       - datum: 2026-04-27
         dauer_h: 3.0
         flaeche_ha: 22
         kitze_gerettet: 3
+        auftraggeber: "Familie Müller"
       - datum: 2026-05-10
         dauer_h: 2.5
         flaeche_ha: 18
         kitze_gerettet: 1
+        auftraggeber: "Jägerschaft Sömmerda"
       - datum: 2026-05-24
         dauer_h: 3.5
         flaeche_ha: 28
         kitze_gerettet: 2
+        auftraggeber: "Familie Müller"
 
-  - name: "Herr Schmidt"
+  # Team seit 2025 aktiv, läuft auch 2026 weiter
+  - name: "Drohnenteam Sömmerda"
+    verein: "Jägerschaft Sömmerda"
+    einsaetze:
+      - datum: 2025-04-22
+        dauer_h: 2.5
+        flaeche_ha: 16
+        kitze_gerettet: 1
+        auftraggeber: "Herr Schmidt"
+      - datum: 2026-04-12
+        dauer_h: 3.5
+        flaeche_ha: 25
+        kitze_gerettet: 2
+        auftraggeber: "Herr Schmidt"
+      - datum: 2026-04-19
+        dauer_h: 2.0
+        flaeche_ha: 15
+        kitze_gerettet: 0
+        auftraggeber: "Agrarhof Kölleda"
+      - datum: 2026-05-03
+        dauer_h: 4.0
+        flaeche_ha: 30
+        kitze_gerettet: 1
+        auftraggeber: "Herr Schmidt"
+
+  # Neues Team, erst 2026 gestartet
+  - name: "Drohnenteam Nordhausen"
     verein: "Jägerschaft Nordhausen"
     einsaetze:
       - datum: 2026-05-02
         dauer_h: 1.5
         flaeche_ha: 10
         kitze_gerettet: 0
+        auftraggeber: "Landwirtschaftsbetrieb Bielen"
       - datum: 2026-05-16
         dauer_h: 2.0
         flaeche_ha: 12
         kitze_gerettet: 1
+        auftraggeber: "Landwirtschaftsbetrieb Bielen"
+
+  # Team existierte nur 2025, 2026 nicht mehr aktiv (z.B. aufgelöst)
+  - name: "Drohnenteam Sondershausen"
+    verein: "Jägerschaft Sondershausen"
+    einsaetze:
+      - datum: 2025-04-10
+        dauer_h: 2.0
+        flaeche_ha: 14
+        kitze_gerettet: 1
+        auftraggeber: "Agrargenossenschaft Seega"
+      - datum: 2025-05-01
+        dauer_h: 2.5
+        flaeche_ha: 18
+        kitze_gerettet: 0
+        auftraggeber: "Familie Weber"

@@ -7,12 +7,22 @@ format:
     fontfamily: libertine
     geometry: margin=2.5cm
     toc: false
+    header-includes:
+      - \usepackage[table]{xcolor}
+      - \definecolor{zebrabg}{HTML}{EFF1EC}
+      - \renewcommand{\maketitle}{}
+      - \setlength{\parskip}{8pt plus 2pt minus 2pt}
+      - \newsavebox{\tablebox}
 lang: de
 execute:
   echo: false
   warning: false
   message: false
 ---
+
+```{r knitr-optionen}
+knitr::opts_chunk$set(dev = "quartz_pdf")
+```
 
 ```{r setup}
 library(yaml)
@@ -25,50 +35,183 @@ library(knitr)
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
 daten <- read_yaml("kitzretter.yml")
+
+# Gemeinsames Erscheinungsbild für alle Grafiken – dezenter, editorialer Look
+thema_kitzrettung <- theme_minimal(base_size = 12) +
+  theme(
+    text                 = element_text(color = "#2b2b28"),
+    plot.title           = element_text(face = "bold", size = 14, margin = margin(b = 4), color = "#1f1f1c"),
+    plot.subtitle        = element_text(color = "#6b6b63", size = 10, margin = margin(b = 14)),
+    plot.caption         = element_text(color = "#8a8a80", size = 7.5, hjust = 0, margin = margin(t = 10)),
+    panel.grid.minor     = element_blank(),
+    panel.grid.major.y   = element_blank(),
+    panel.grid.major.x   = element_line(color = "#e4e1d8", linewidth = 0.3),
+    axis.title           = element_text(color = "#6b6b63", size = 9.5),
+    axis.text            = element_text(color = "#3d3d38", size = 9.5),
+    axis.ticks           = element_blank(),
+    plot.background      = element_rect(fill = "#fbfaf7", color = NA),
+    panel.background     = element_rect(fill = "#fbfaf7", color = NA),
+    plot.margin          = margin(12, 20, 10, 10)
+  )
+
+# Abgestufte Farbverläufe statt einer Flatfarbe je Kategorie
+palette_stunden <- c(low = "#a9c2ac", high = "#1f3d2c")   # helles Salbei -> tiefes Waldgrün
+palette_einsatz <- c(low = "#e6c789", high = "#7a4f1c")   # helles Sandgold -> gedecktes Bernstein
+palette_effizienz <- c(low = "#d9b8a3", high = "#8c4a2f") # helles Terrakotta -> gedecktes Rostrot
+
+# Gesetzlicher Mindestlohn je Jahr (Stand: Januar 2026) – bei neuer Erhöhung hier ergänzen
+mindestlohn_tabelle <- tibble(
+  jahr        = c(2023, 2024, 2025, 2026, 2027),
+  mindestlohn = c(12.00, 12.41, 12.82, 13.90, 14.60)
+)
+
+get_mindestlohn <- function(jahr) {
+  treffer <- mindestlohn_tabelle$mindestlohn[mindestlohn_tabelle$jahr == jahr]
+  if (length(treffer) == 0) {
+    # Jahr noch nicht in der Tabelle -> zuletzt bekannten Satz verwenden (bitte manuell nachpflegen)
+    treffer <- mindestlohn_tabelle$mindestlohn[which.max(mindestlohn_tabelle$jahr)]
+  }
+  treffer
+}
+
+# Breite Tabellen automatisch auf Textbreite skalieren (graphicx/\resizebox,
+# Standardpaket, kein zusätzliches TeX-Paket nötig) — aber nur, wenn die
+# Tabelle tatsächlich zu breit ist. Schmale Tabellen werden NICHT künstlich
+# aufgeblasen, sonst wirkt die Schrift riesig im Vergleich zu anderen Tabellen.
+resize_kable <- function(df, ...) {
+  tab <- kable(df, format = "latex", booktabs = TRUE, linesep = "", ...)
+  cat("\\vspace{10pt}\n")
+  cat("\\begin{lrbox}{\\tablebox}\n")
+  cat("\\rowcolors{2}{zebrabg}{white}\n")
+  cat(tab, sep = "\n")
+  cat("\\end{lrbox}\n")
+  cat("\\ifdim\\wd\\tablebox>\\linewidth\n")
+  cat("  \\resizebox{\\linewidth}{!}{\\usebox{\\tablebox}}\n")
+  cat("\\else\n")
+  cat("  \\usebox{\\tablebox}\n")
+  cat("\\fi\n")
+  cat("\\vspace{14pt}\n")
+}
 ```
 
 ```{r datenaufbereitung}
-# Ein Verein/Team = eine Zeile. Aus den einzelnen Einsätzen werden
-# Gesamtstunden, Anzahl Einsätze und Ø Stunden/Einsatz berechnet.
-kitzretter_df <- map_dfr(daten$kitzretter, function(kr) {
-  tibble(
-    name           = kr$name,
-    verein         = kr$verein %||% NA_character_,
-    einsaetze      = length(kr$einsaetze),
-    gesamtstunden  = sum(map_dbl(kr$einsaetze, ~ .x$dauer_h %||% 0)),
-    kitze_gerettet = sum(map_dbl(kr$einsaetze, ~ .x$kitze_gerettet %||% 0))
-  )
-}) %>%
-  mutate(stunden_je_einsatz = round(gesamtstunden / einsaetze, 2))
-
+# Jeder Einsatz einzeln, inkl. Jahr und wirtschaftlichem Gegenwert auf Basis
+# des in diesem Jahr gültigen gesetzlichen Mindestlohns.
 alle_einsaetze <- map_dfr(daten$kitzretter, function(kr) {
   map_dfr(kr$einsaetze, function(e) {
-    tibble(name = kr$name, dauer_h = e$dauer_h %||% 0)
+    tibble(
+      name           = kr$name,
+      verein         = kr$verein %||% NA_character_,
+      datum          = as.Date(e$datum),
+      dauer_h        = e$dauer_h %||% 0,
+      kitze_gerettet = e$kitze_gerettet %||% 0,
+      auftraggeber   = e$auftraggeber %||% NA_character_
+    )
   })
-})
-```
-
-# Gesamtergebnis
-
-```{r zusammenfassung}
-zusammenfassung <- kitzretter_df %>%
-  summarise(
-    `Kitzretter gesamt`                = n(),
-    `Einsätze gesamt`                  = sum(einsaetze),
-    `Stunden gesamt`                   = round(sum(gesamtstunden), 1),
-    `Kitze gerettet gesamt`            = sum(kitze_gerettet),
-    `Ø Gesamtstunden je Kitzretter`     = round(mean(gesamtstunden), 2),
-    `Ø Stunden je Einsatz (Thüringen)`  = round(sum(gesamtstunden) / sum(einsaetze), 2)
+}) %>%
+  mutate(
+    jahr             = as.integer(format(datum, "%Y")),
+    mindestlohn_jahr = map_dbl(jahr, get_mindestlohn),
+    gegenwert        = dauer_h * mindestlohn_jahr
   )
 
-kable(t(zusammenfassung), col.names = "Wert", format = "latex", booktabs = TRUE)
+# Berichtsjahr: entweder explizit in der YAML gesetzt, sonst das jüngste Jahr in den Daten
+berichtsjahr <- daten$berichtsjahr %||% max(alle_einsaetze$jahr)
+mindestlohn_berichtsjahr <- get_mindestlohn(berichtsjahr)
+
+# Kitzretter-Kennzahlen NUR für das Berichtsjahr (das ist der eigentliche Jahresbericht)
+kitzretter_df <- alle_einsaetze %>%
+  filter(jahr == berichtsjahr) %>%
+  group_by(name, verein) %>%
+  summarise(
+    einsaetze      = n(),
+    gesamtstunden  = sum(dauer_h),
+    kitze_gerettet = sum(kitze_gerettet),
+    gegenwert      = sum(gegenwert),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    stunden_je_einsatz = round(gesamtstunden / einsaetze, 2),
+    kitze_pro_stunde   = round(kitze_gerettet / gesamtstunden, 2)
+  )
+
+alle_einsaetze_berichtsjahr <- alle_einsaetze %>% filter(jahr == berichtsjahr)
+
+# Mehrjahresübersicht: eine Zeile je Jahr, über alle Kitzretter hinweg
+jahresuebersicht <- alle_einsaetze %>%
+  group_by(jahr) %>%
+  summarise(
+    teams_aktiv    = n_distinct(name),
+    einsaetze      = n(),
+    stunden        = sum(dauer_h),
+    kitze_gerettet = sum(kitze_gerettet),
+    gegenwert      = sum(gegenwert),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    stunden_je_einsatz = round(stunden / einsaetze, 2),
+    kitze_pro_stunde    = round(kitze_gerettet / stunden, 2)
+  ) %>%
+  arrange(jahr)
+
+# Welches Team war in welchem Jahr aktiv – Basis für Zu-/Abgänge
+team_zeitraum <- alle_einsaetze %>%
+  group_by(name) %>%
+  summarise(erstes_jahr = min(jahr), letztes_jahr = max(jahr), .groups = "drop") %>%
+  mutate(status_berichtsjahr = case_when(
+    letztes_jahr < berichtsjahr  ~ "nicht mehr aktiv",
+    erstes_jahr  == berichtsjahr ~ "neu seit diesem Jahr",
+    TRUE ~ "aktiv"
+  ))
+
+teams_neu     <- team_zeitraum %>% filter(status_berichtsjahr == "neu seit diesem Jahr") %>% pull(name)
+teams_beendet <- team_zeitraum %>% filter(status_berichtsjahr == "nicht mehr aktiv") %>% pull(name)
+
+gesamtleistung_alle_jahre <- sum(alle_einsaetze$gegenwert)
+gesamtstunden_alle_jahre  <- sum(alle_einsaetze$dauer_h)
+erstes_erfasstes_jahr     <- min(alle_einsaetze$jahr)
 ```
 
-`r nrow(kitzretter_df)` Kitzretter waren im Berichtszeitraum `r sum(kitzretter_df$einsaetze)` mal im Einsatz und haben dabei insgesamt `r round(sum(kitzretter_df$gesamtstunden),1)` Stunden im Feld verbracht. Im Schnitt kommt jeder Kitzretter auf `r round(mean(kitzretter_df$gesamtstunden),1)` Stunden, ein einzelner Einsatz dauert Thüringen-weit im Mittel `r round(sum(kitzretter_df$gesamtstunden)/sum(kitzretter_df$einsaetze),1)` Stunden.
+```{r kopf, results='asis'}
+erfasser      <- daten$erstellt %||% "–"
+erstellt_am   <- daten$erstellt_am %||% as.character(Sys.Date())
+zeitraum_kopf <- as.character(berichtsjahr)
 
-# Einzelanalyse je Kitzretter
+cat(sprintf('
+\\definecolor{kbheader}{HTML}{2D5A3D}
+\\noindent\\colorbox{kbheader}{\\parbox{\\linewidth}{\\color{white}\\vspace{5pt}
+{\\Large\\textbf{%s}}\\\\[2pt]
+{\\large %s}\\\\[7pt]
+{\\small Erfasst von: %s \\quad|\\quad Stand: %s \\quad|\\quad Berichtsjahr: %s}
+\\vspace{5pt}}}
+\\vspace{14pt}
+', daten$titel %||% "Kitzrettung Thüringen", "Einsatzauswertung der Kitzretter",
+   erfasser, erstellt_am, zeitraum_kopf))
+```
 
-```{r tabelle-einzeln}
+# Gesamtergebnis `r berichtsjahr`
+
+```{r zusammenfassung, results='asis'}
+zusammenfassung <- kitzretter_df %>%
+  summarise(
+    `Kitzretter gesamt`                     = n(),
+    `Einsätze gesamt`                       = sum(einsaetze),
+    `Stunden gesamt`                        = round(sum(gesamtstunden), 1),
+    `Kitze gerettet gesamt`                 = sum(kitze_gerettet),
+    `Ø Gesamtstunden je Kitzretter`          = round(mean(gesamtstunden), 2),
+    `Ø Stunden je Einsatz (Thüringen)`       = round(sum(gesamtstunden) / sum(einsaetze), 2),
+    `Ø Kitze je Stunde (Thüringen)`          = round(sum(kitze_gerettet) / sum(gesamtstunden), 2),
+    `Wirtschaftl. Gegenwert (Mindestlohn)`   = round(sum(gegenwert), 0)
+  )
+
+resize_kable(t(zusammenfassung), col.names = "Wert")
+```
+
+`r nrow(kitzretter_df)` Kitzretter waren `r berichtsjahr` `r sum(kitzretter_df$einsaetze)` mal im Einsatz und haben dabei insgesamt `r round(sum(kitzretter_df$gesamtstunden),1)` Stunden im Feld verbracht. Im Schnitt kommt jeder Kitzretter auf `r round(mean(kitzretter_df$gesamtstunden),1)` Stunden, ein einzelner Einsatz dauert Thüringen-weit im Mittel `r round(sum(kitzretter_df$gesamtstunden)/sum(kitzretter_df$einsaetze),1)` Stunden. Auf Basis des `r berichtsjahr` gültigen Mindestlohns von `r format(mindestlohn_berichtsjahr, decimal.mark = ",")` €/h entspricht das einem wirtschaftlichen Gegenwert von rund `r format(round(sum(kitzretter_df$gegenwert),0), big.mark = ".", decimal.mark = ",")` € — eine konservative Untergrenze, da sie fachliche Qualifikation und Ausrüstung nicht abbildet.
+
+# Einzelanalyse je Kitzretter `r berichtsjahr`
+
+```{r tabelle-einzeln, results='asis'}
 kitzretter_df %>%
   arrange(desc(gesamtstunden)) %>%
   select(
@@ -77,33 +220,176 @@ kitzretter_df %>%
     Einsätze          = einsaetze,
     Gesamtstunden     = gesamtstunden,
     `Ø Std/Einsatz`   = stunden_je_einsatz,
-    `Kitze gerettet`  = kitze_gerettet
+    `Kitze gerettet`  = kitze_gerettet,
+    `Kitze/h`         = kitze_pro_stunde,
+    `Gegenwert (€)`   = gegenwert
   ) %>%
-  kable(format = "latex", booktabs = TRUE)
+  mutate(`Gegenwert (€)` = round(`Gegenwert (€)`, 0)) %>%
+  resize_kable()
 ```
 
-# Grafiken
+# Mehrjahresübersicht
+
+Seit Beginn der Erfassung (`r erstes_erfasstes_jahr`) haben die Kitzretter Thüringens insgesamt `r round(gesamtstunden_alle_jahre,1)` Stunden geleistet — wirtschaftlicher Gegenwert über alle Jahre rund `r format(round(gesamtleistung_alle_jahre,0), big.mark=".", decimal.mark=",")` € (jeweils zum gültigen Mindestlohn des Einsatzjahres).
+
+```{r tabelle-jahre, results='asis'}
+jahresuebersicht %>%
+  select(
+    Jahr                = jahr,
+    `Aktive Teams`      = teams_aktiv,
+    Einsätze            = einsaetze,
+    Stunden             = stunden,
+    `Ø Std/Einsatz`     = stunden_je_einsatz,
+    `Kitze/h`           = kitze_pro_stunde,
+    `Gegenwert (€)`      = gegenwert
+  ) %>%
+  mutate(
+    Stunden        = round(Stunden, 1),
+    `Gegenwert (€)` = round(`Gegenwert (€)`, 0)
+  ) %>%
+  resize_kable()
+```
+
+```{r team-fluktuation, results='asis'}
+if (length(teams_neu) > 0) {
+  cat(paste0("**Neu seit ", berichtsjahr, ":** ", paste(teams_neu, collapse = ", "), "\n\n"))
+}
+if (length(teams_beendet) > 0) {
+  cat(paste0("**Nicht mehr aktiv (letzter Einsatz vor ", berichtsjahr, "):** ", paste(teams_beendet, collapse = ", "), "\n\n"))
+}
+```
+
+```{r grafik-jahresverlauf, fig.width=7, fig.height=4}
+ggplot(jahresuebersicht, aes(x = factor(jahr), y = stunden, fill = jahr)) +
+  geom_col(width = 0.55) +
+  geom_text(
+    aes(label = paste0(round(stunden, 1), " h\n", format(round(gegenwert, 0), big.mark = ".", decimal.mark = ","), " €")),
+    vjust = -0.15, size = 3.1, color = "#3d3d38", lineheight = 0.9
+  ) +
+  scale_fill_gradient(low = palette_stunden["low"], high = palette_stunden["high"], guide = "none") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.28))) +
+  labs(
+    title    = "Gesamtstunden und wirtschaftlicher Gegenwert je Jahr",
+    subtitle = "Gegenwert auf Basis des im jeweiligen Jahr gültigen gesetzlichen Mindestlohns",
+    x = NULL, y = "Stunden gesamt",
+    caption  = "Quelle: eigene Einsatzerfassung"
+  ) +
+  thema_kitzrettung
+```
+
+
+
+# Grafiken `r berichtsjahr`
 
 ```{r grafik-gesamtstunden, fig.width=7, fig.height=4}
-ggplot(kitzretter_df, aes(x = reorder(name, gesamtstunden), y = gesamtstunden)) +
-  geom_col(fill = "#3b6e42") +
-  coord_flip() +
-  labs(x = NULL, y = "Gesamtstunden", title = "Gesamtstunden je Kitzretter") +
-  theme_minimal(base_size = 11)
+ggplot(kitzretter_df, aes(x = reorder(name, gesamtstunden), y = gesamtstunden, color = gesamtstunden)) +
+  geom_segment(aes(xend = name, y = 0, yend = gesamtstunden), linewidth = 1.3) +
+  geom_point(size = 4) +
+  geom_text(aes(label = paste0(gesamtstunden, " h")), hjust = -0.4, size = 3.3, color = "#3d3d38") +
+  scale_color_gradient(low = palette_stunden["low"], high = palette_stunden["high"], guide = "none") +
+  coord_flip(clip = "off") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
+  labs(
+    title    = "Gesamtstunden je Kitzretter",
+    subtitle = paste0("Berichtsjahr: ", berichtsjahr),
+    x = NULL, y = "Stunden gesamt",
+    caption  = "Quelle: eigene Einsatzerfassung"
+  ) +
+  thema_kitzrettung
 ```
 
 ```{r grafik-durchschnitt, fig.width=7, fig.height=4}
-ggplot(kitzretter_df, aes(x = reorder(name, stunden_je_einsatz), y = stunden_je_einsatz)) +
-  geom_col(fill = "#8a6d3b") +
-  coord_flip() +
-  labs(x = NULL, y = "Ø Stunden je Einsatz", title = "Durchschnittliche Einsatzdauer je Kitzretter") +
-  theme_minimal(base_size = 11)
+durchschnitt_gesamt <- sum(kitzretter_df$gesamtstunden) / sum(kitzretter_df$einsaetze)
+
+ggplot(kitzretter_df, aes(x = reorder(name, stunden_je_einsatz), y = stunden_je_einsatz, color = stunden_je_einsatz)) +
+  geom_segment(aes(xend = name, y = 0, yend = stunden_je_einsatz), linewidth = 1.3) +
+  geom_point(size = 4) +
+  geom_text(aes(label = paste0(stunden_je_einsatz, " h")), hjust = -0.4, size = 3.3, color = "#3d3d38") +
+  geom_hline(yintercept = durchschnitt_gesamt, linetype = "dashed", color = "#8a8a80", linewidth = 0.4) +
+  scale_color_gradient(low = palette_einsatz["low"], high = palette_einsatz["high"], guide = "none") +
+  coord_flip(clip = "off") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
+  labs(
+    title    = "Durchschnittliche Einsatzdauer je Kitzretter",
+    subtitle = paste0("Gestrichelt: Thüringen-Durchschnitt = ", round(durchschnitt_gesamt, 2), " h je Einsatz"),
+    x = NULL, y = "Ø Stunden je Einsatz",
+    caption  = "Quelle: eigene Einsatzerfassung"
+  ) +
+  thema_kitzrettung
 ```
 
-```{r grafik-verteilung, fig.width=7, fig.height=4}
-ggplot(alle_einsaetze, aes(x = dauer_h)) +
-  geom_histogram(binwidth = 0.5, fill = "#4a5568", color = "white", boundary = 0) +
-  labs(x = "Einsatzdauer (Stunden)", y = "Anzahl Einsätze",
-       title = "Verteilung der Einsatzdauer über alle Einsätze") +
-  theme_minimal(base_size = 11)
+```{r grafik-effizienz, fig.width=7, fig.height=4}
+ggplot(kitzretter_df, aes(x = reorder(name, kitze_pro_stunde), y = kitze_pro_stunde, color = kitze_pro_stunde)) +
+  geom_segment(aes(xend = name, y = 0, yend = kitze_pro_stunde), linewidth = 1.3) +
+  geom_point(size = 4) +
+  geom_text(aes(label = kitze_pro_stunde), hjust = -0.4, size = 3.3, color = "#3d3d38") +
+  scale_color_gradient(low = palette_effizienz["low"], high = palette_effizienz["high"], guide = "none") +
+  coord_flip(clip = "off") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
+  labs(
+    title    = "Effizienz: Kitze gerettet je Stunde",
+    subtitle = paste0("Berichtsjahr ", berichtsjahr, " · Output pro Zeitaufwand, unabhängig von Konsistenz/Streuung"),
+    x = NULL, y = "Kitze gerettet je Stunde",
+    caption  = "Quelle: eigene Einsatzerfassung"
+  ) +
+  thema_kitzrettung
 ```
+
+```{r grafik-boxplot-jahre, fig.width=7, fig.height=4}
+set.seed(43)
+
+ggplot(alle_einsaetze, aes(x = factor(jahr), y = dauer_h)) +
+  geom_boxplot(fill = palette_stunden["low"], color = palette_stunden["high"], width = 0.35, outlier.shape = NA) +
+  geom_jitter(width = 0.08, height = 0, shape = 21, size = 2.4,
+              fill = palette_einsatz["high"], color = "white", stroke = 0.5, alpha = 0.85) +
+  labs(
+    title    = "Konsistenz der Einsatzdauer über die Jahre",
+    subtitle = "Schmalere Box = konsistentere, eingespieltere Einsatzdauer über alle Teams hinweg",
+    x = NULL, y = "Einsatzdauer (Stunden)",
+    caption  = "Box = mittlere 50 % aller Einsätze des Jahres, Strich = Median · Quelle: eigene Einsatzerfassung"
+  ) +
+  thema_kitzrettung
+```
+
+
+
+```{r grafik-boxplot, fig.width=7, fig.height=4}
+set.seed(42)  # fester Seed, damit die Punktposition bei jedem Rendern gleich bleibt
+
+# Box: gesamter erfasster Zeitraum je (aktuell aktivem) Team.
+# Punkte: nur die Einsätze aus dem Berichtsjahr.
+box_daten <- alle_einsaetze %>%
+  filter(name %in% kitzretter_df$name)
+
+team_reihenfolge <- box_daten %>%
+  group_by(name) %>%
+  summarise(median_dauer = median(dauer_h), .groups = "drop") %>%
+  arrange(median_dauer) %>%
+  pull(name)
+
+box_daten     <- box_daten %>% mutate(name = factor(name, levels = team_reihenfolge))
+punkte_daten  <- alle_einsaetze_berichtsjahr %>% mutate(name = factor(name, levels = team_reihenfolge))
+
+ggplot(box_daten, aes(x = name, y = dauer_h)) +
+  geom_boxplot(fill = palette_stunden["low"], color = palette_stunden["high"], width = 0.45, outlier.shape = NA) +
+  geom_jitter(data = punkte_daten, aes(x = name, y = dauer_h),
+              width = 0.15, height = 0, shape = 21, size = 2.6,
+              fill = palette_einsatz["high"], color = "white", stroke = 0.5, alpha = 0.9) +
+  coord_flip() +
+  labs(
+    title    = "Verteilung der Einsatzdauer je Kitzretter",
+    subtitle = paste0("Box = gesamter erfasster Zeitraum je Team · braune Punkte = Einsätze ", berichtsjahr),
+    x = NULL, y = "Einsatzdauer (Stunden)",
+    caption  = "Box = mittlere 50 % der Einsätze (Q1–Q3), Strich = Median\nIQR = Q3−Q1 (Boxbreite), Whisker = Werte bis max. 1,5×IQR · Quelle: eigene Einsatzerfassung"
+  ) +
+  thema_kitzrettung
+```
+
+
+
+
+
+
+
+
+
