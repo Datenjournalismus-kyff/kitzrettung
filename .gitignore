@@ -11,6 +11,7 @@ bericht_kitzrettung.pdf
 artikel_kitzrettung.html
 kitzrettung_beitrag.qmd
 kitzrettung_beitrag.html
+clossar.html
 
 # Exportierte Chart-PNGs (per ggsave() aus den .qmd-Dateien erzeugt) —
 # reine Hilfsdateien für den Artikel, jederzeit aus den Daten neu generierbar
@@ -34,3 +35,5 @@ clossar.md
 # --- Sonstiges ---
 *.log
 bericht_kitzrettung.pdf
+
+**/*.quarto_ipynb
